@@ -1,9 +1,8 @@
 import React, { createContext, useContext, useReducer } from 'react'
-import { ConnectedWallet } from '@terra-money/wallet-provider'
-import { LCDClient } from '@terra-money/terra.js'
-
 import { floor, floorNormalize } from './Util'
 import { amountHistory, aprHistory, userInfo, farmInfo, potInfo, coins, uCoinBalance, coinPrice } from './constants'
+import NearWalletSelector from "@near-wallet-selector/core";
+import { Signer } from 'ethers';
 
 export type COINTYPE = 'usdc' | 'usdt' | 'dai' | 'usn' | 'wbtc' | 'eth' | 'wnear' | 'neart';
 
@@ -15,9 +14,6 @@ interface Action {
 export interface AppContextInterface {
   loading: boolean,
   net: "mainnet" | "testnet",
-  connected: Boolean,
-  lcd: LCDClient,
-  wallet: ConnectedWallet | undefined,
   uCoinBalance: any,
   tab: "dashboard" | "mypage" | "earn" | "utility",
   openDepositModal: (() => void) | undefined,
@@ -37,19 +33,16 @@ export interface AppContextInterface {
   txhash: string | undefined,
   qualified: boolean,
   potInfo: any,
-  connectedWallet: any
+  connectedNear: Boolean,
+  connectedEthereum: Boolean,
+  connectedAurora: Boolean,
+  nearSelector: NearWalletSelector | undefined,
+  ethereumSigner: Signer | undefined,
 }
 
 const initialState: AppContextInterface = {
   loading: false,
   net: "testnet",
-  connected: false,
-  lcd: new LCDClient({ //
-    URL: 'https://lcd.terra.dev',
-    chainID: 'columbus-5',
-    gasPrices: { uusd: 0.45 },
-  }),
-  wallet: undefined,
   uCoinBalance: uCoinBalance,
   tab: 'dashboard',
   openDepositModal: undefined,
@@ -69,15 +62,17 @@ const initialState: AppContextInterface = {
   txhash: undefined,
   qualified: false,
   potInfo: potInfo,
-  connectedWallet: undefined
+  connectedNear: false,
+  connectedEthereum: false,
+  connectedAurora: false,
+  nearSelector: undefined,
+  ethereumSigner: undefined
 }
 
 export enum ActionKind{
   setLoading,
   setNet,
   setPoolAddr,
-  setLcd,
-  setConnected,
   setUCoinBalance,
   setTab,
   setOpenDepositModal,
@@ -97,7 +92,11 @@ export enum ActionKind{
   setTxhash,
   setQualified,
   setPotInfo,
-  setConnectedWallet
+  setConnectedNear,
+  setConnectedEthereum,
+  setConnectedAurora,
+  setNearSelector,
+  setEthereumSigner
 }
 
 const StoreContext = createContext<{ state: AppContextInterface; dispatch: React.Dispatch<any>; }>
@@ -112,10 +111,6 @@ export const reducer = (state: AppContextInterface,  action: Action ) => {
       return { ...state, loading: action.payload}
     case ActionKind.setNet:
       return { ...state, net: action.payload}
-    case ActionKind.setConnected:
-      return { ...state, connected: action.payload }
-    case ActionKind.setLcd:
-      return { ...state, lcd: action.payload }
     case ActionKind.setUCoinBalance:
       return { ...state, uCoinBalance: { ...state.uCoinBalance, [action.payload.type]: action.payload.data } }
     case ActionKind.setTab:
@@ -154,8 +149,16 @@ export const reducer = (state: AppContextInterface,  action: Action ) => {
       return {...state, qualified: action.payload}
     case ActionKind.setPotInfo:
       return {...state, potInfo: action.payload}
-    case ActionKind.setConnectedWallet:
-      return {...state, connectedWallet: action.payload}
+    case ActionKind.setConnectedNear:
+      return {...state, connectedNear: action.payload}
+    case ActionKind.setConnectedEthereum:
+      return {...state, connectedEthereum: action.payload}
+    case ActionKind.setConnectedAurora:
+      return {...state, connectedAurora: action.payload}
+    case ActionKind.setNearSelector:
+      return {...state, nearSelector: action.payload}
+    case ActionKind.setEthereumSigner:
+      return {...state, ethereumSigner: action.payload}
     default:
       return state
   }
@@ -183,13 +186,15 @@ export const StoreProvider: React.FC = ({ children}) =>
 }
 
 export const useStore = () => useContext(StoreContext)
-export const useWallet = () => {
+
+export const useNearSelector = () => {
   const {state, dispatch} = useStore();
-  return state.wallet;
+  return state.nearSelector;
 }
-export const useLCD = () => {
+
+export const useEthereumSigner = () => {
   const {state, dispatch} = useStore();
-  return state.lcd;
+  return state.ethereumSigner;
 }
 
 export const useNearAPIURL = () => {
@@ -248,9 +253,18 @@ export const useExchangeRate = () => {
   return state.coinPrice;
 }
 
+export const useConnectedCoin = () => {
+  const {state} = useStore();
+  const res: any = {};
+
+  coins.forEach(coin => {
+    res[coin.name] = (state as any)[`connected${coin.system}`];
+  })
+  return res;
+}
+
 export const OpenDepositModal = (state:AppContextInterface , dispatch: React.Dispatch<any>, type: COINTYPE) => {
   dispatch({type: ActionKind.setCoinType, payload: type});
-
   if(state.openDepositModal != undefined)
     state.openDepositModal()
 }
@@ -258,7 +272,6 @@ export const OpenDepositModal = (state:AppContextInterface , dispatch: React.Dis
 export const OpenWithdrawModal = (state:AppContextInterface , dispatch: React.Dispatch<any>, type: COINTYPE) => 
 {
   dispatch({type: ActionKind.setCoinType, payload: type});
-
   if(state.openWithdrawModal != undefined)
     state.openWithdrawModal()
 }

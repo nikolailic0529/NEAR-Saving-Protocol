@@ -10,7 +10,7 @@ import Wallet from './../../../assets/Wallet.svg';
 import { useStore, ActionKind, useCoinBalance } from '../../../store';
 import { shortenAddress, floorNormalize } from '../../../Util';
 import * as nearAPI from "near-api-js";
-import { useWalletSelector } from '../../../context/WalletSelectorContext';
+import { useWalletSelector } from '../../../context/NearWalletSelectorContext';
 import { AccountView } from "near-api-js/lib/providers/provider";
 import { providers, utils } from "near-api-js";
 
@@ -46,6 +46,15 @@ const ConnectWallet: FunctionComponent = () => {
       }));
   }, [accountId, selector.network]);
 
+  const handleSignOut = () => {
+    selector.signOut().catch((err) => {
+      console.log("Failed to sign out");
+      console.error(err);
+    }).then(() => {
+      dispatch({ type: ActionKind.setConnectedNear, payload: false });
+    });
+  };
+
   useEffect(() => {
     if (!accountId) {
       return setAccount(null);
@@ -62,19 +71,19 @@ const ConnectWallet: FunctionComponent = () => {
       dispatch({type: ActionKind.setUCoinBalance, payload: { type: 'near', data: floorNormalize(amount as any / 10 ** 18)}});
 
       if (!accountId) {
-        dispatch({ type: ActionKind.setConnected, payload: false });
+        dispatch({ type: ActionKind.setConnectedNear, payload: false });
         return;
       }
 
-      dispatch({ type: ActionKind.setConnected, payload: true });
-      dispatch({ type: ActionKind.setConnectedWallet, payload: selector });
+      dispatch({ type: ActionKind.setConnectedNear, payload: true });
+      dispatch({ type: ActionKind.setNearSelector, payload: selector });
     });
 
   }, [accountId, getAccount, dispatch]);
 
   return (
     <>
-      {!state.connected && 
+      {!state.connectedNear && 
         <Button
           fontSize={'15px'}
           fontWeight={'700'}
@@ -91,7 +100,7 @@ const ConnectWallet: FunctionComponent = () => {
           </Text>
         </Button>
       }
-      {state.connected &&
+      {state.connectedNear &&
         <Popover>
           <PopoverTrigger>
             <Button
@@ -102,7 +111,8 @@ const ConnectWallet: FunctionComponent = () => {
               background={'none'}
               border={'solid 2px #F9D85E'}
               rounded={'25px'}
-              onClick={() => { onOpenInfomation() }}
+              // onClick={() => { onOpenInfomation() }}
+              onClick={() => { handleSignOut() }}
             >
               {(bank && !state.loading) &&
                 <MdOutlineAccountBalanceWallet size={25} color={'#F9D85E'}/>

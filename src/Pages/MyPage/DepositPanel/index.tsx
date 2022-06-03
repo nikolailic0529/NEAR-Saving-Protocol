@@ -13,10 +13,16 @@ import {
 } from '../../../store';
 import AnimationNumber from '../../Components/AnimationNumber';
 import { floor, floorNormalize } from '../../../Util';
+import { useConnectedCoin, useNearSelector, ActionKind } from '../../../store';
+import { successOption, errorOption } from '../../../constants';
+import { toast } from 'react-toastify';
+import { ethers } from "ethers";
 
 interface Props {
   coin: any
 }
+
+declare let window: any;
 
 const DepositPanel: FunctionComponent<Props> = (props) => {
   const { state, dispatch } = useStore();
@@ -28,6 +34,51 @@ const DepositPanel: FunctionComponent<Props> = (props) => {
   const coinDeposited = useCoinDeposited() + floorNormalize(state.userInfoCoin[coin.name].reward_amount);
   const apr = aprs[coin.name];
   const amount = coinDeposited * rate;
+  const connectedCoin = useConnectedCoin();
+  const nearSelector = useNearSelector();
+
+  const logoutMetamask = async () => {
+    await window.ethereum.request({
+      method: "eth_requestAccounts",
+      params: [
+        {
+          eth_accounts: {}
+        }
+      ]
+    });
+    await window.ethereum.request({
+      method: "wallet_requestPermissions",
+      params: [
+        {
+          eth_accounts: {}
+        }
+      ]
+    });
+
+  }
+
+  const connectWallet = async (coinSystem: string) => {
+    if(coinSystem == 'Near') {
+      nearSelector?.show();
+    }
+    else if(coinSystem == 'Ethereum') {
+      if (!window.ethereum) {
+        toast("No crypto wallet found. Please install it.", errorOption);
+      }
+
+      await logoutMetamask();
+    
+      await window.ethereum.send("eth_requestAccounts");
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      const signer = provider.getSigner();
+
+      dispatch({ type: ActionKind.setConnectedEthereum, payload: true });
+      dispatch({ type: ActionKind.setEthereumSigner, payload: signer });
+    }
+    else if(coinSystem == 'Aurora') {
+      
+    }
+  }
 
   return (
     <VStack
@@ -132,7 +183,7 @@ const DepositPanel: FunctionComponent<Props> = (props) => {
           h={'50px'}
           background={'#493C3C'}
           rounded={'25px'}
-          onClick={() => OpenDepositModal(state, dispatch, coin.name)}
+          onClick={!connectedCoin[coin.name]? () => connectWallet(coin.system): () => OpenDepositModal(state, dispatch, coin.name)}
         >
           <Text
             fontSize={'14px'}
@@ -140,7 +191,7 @@ const DepositPanel: FunctionComponent<Props> = (props) => {
             lineHeight={'10.8px'}
             color={'white'}
           >
-            Deposit
+            {connectedCoin[coin.name]? 'Deposit': 'Connect Wallet'}
           </Text>
         </Button>
         <Button
@@ -149,7 +200,7 @@ const DepositPanel: FunctionComponent<Props> = (props) => {
           background={'#212121'}
           rounded={'25px'}
           border={'solid 1px #CEBFBF'}
-          onClick={() => OpenWithdrawModal(state, dispatch, coin.name)}
+          onClick={!connectedCoin[coin.name]? () => connectWallet(coin.system): () => OpenWithdrawModal(state, dispatch, coin.name)}
         >
           <Text
             fontSize={'14px'}
@@ -157,7 +208,7 @@ const DepositPanel: FunctionComponent<Props> = (props) => {
             lineHeight={'10px'}
             color={'#CEBFBF'}
           >
-            Withdraw
+             {connectedCoin[coin.name]? 'Withdraw': 'Connect Wallet'}
           </Text>
         </Button>
       </Stack>}
