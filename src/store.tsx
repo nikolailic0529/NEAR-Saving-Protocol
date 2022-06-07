@@ -2,7 +2,6 @@ import React, { createContext, useContext, useReducer } from 'react'
 import { floor, floorNormalize } from './Util'
 import { amountHistory, aprHistory, userInfo, farmInfo, potInfo, coins, uCoinBalance, coinPrice } from './constants'
 import NearWalletSelector from "@near-wallet-selector/core";
-import { Signer } from 'ethers';
 
 export type COINTYPE = 'usdc' | 'usdt' | 'dai' | 'usn' | 'wbtc' | 'eth' | 'wnear' | 'neart';
 
@@ -10,6 +9,8 @@ interface Action {
   type: ActionKind;
   payload: any;
 }
+
+declare let window: any;
 
 export interface AppContextInterface {
   loading: boolean,
@@ -34,10 +35,7 @@ export interface AppContextInterface {
   qualified: boolean,
   potInfo: any,
   connectedNear: Boolean,
-  connectedEthereum: Boolean,
-  connectedAurora: Boolean,
   nearSelector: NearWalletSelector | undefined,
-  ethereumSigner: Signer | undefined,
 }
 
 const initialState: AppContextInterface = {
@@ -63,10 +61,7 @@ const initialState: AppContextInterface = {
   qualified: false,
   potInfo: potInfo,
   connectedNear: false,
-  connectedEthereum: false,
-  connectedAurora: false,
   nearSelector: undefined,
-  ethereumSigner: undefined
 }
 
 export enum ActionKind{
@@ -93,10 +88,7 @@ export enum ActionKind{
   setQualified,
   setPotInfo,
   setConnectedNear,
-  setConnectedEthereum,
-  setConnectedAurora,
   setNearSelector,
-  setEthereumSigner
 }
 
 const StoreContext = createContext<{ state: AppContextInterface; dispatch: React.Dispatch<any>; }>
@@ -151,14 +143,8 @@ export const reducer = (state: AppContextInterface,  action: Action ) => {
       return {...state, potInfo: action.payload}
     case ActionKind.setConnectedNear:
       return {...state, connectedNear: action.payload}
-    case ActionKind.setConnectedEthereum:
-      return {...state, connectedEthereum: action.payload}
-    case ActionKind.setConnectedAurora:
-      return {...state, connectedAurora: action.payload}
     case ActionKind.setNearSelector:
       return {...state, nearSelector: action.payload}
-    case ActionKind.setEthereumSigner:
-      return {...state, ethereumSigner: action.payload}
     default:
       return state
   }
@@ -190,11 +176,6 @@ export const useStore = () => useContext(StoreContext)
 export const useNearSelector = () => {
   const {state, dispatch} = useStore();
   return state.nearSelector;
-}
-
-export const useEthereumSigner = () => {
-  const {state, dispatch} = useStore();
-  return state.ethereumSigner;
 }
 
 export const useNearAPIURL = () => {
@@ -242,7 +223,7 @@ export const useCoinApr = () => {
   coins.forEach(coin => {
     const data = state.aprHistory[coin.name];
     const last = data? data.length - 1: -1;
-    apr[coin.name] = last >= 0? parseInt(data[last].apr) / 100: 0;
+    apr[coin.name] = last >= 0? parseInt(data[last].apr) / 10 ** 6: 0;
   })
   
   return apr;
@@ -261,6 +242,14 @@ export const useConnectedCoin = () => {
     res[coin.name] = (state as any)[`connected${coin.system}`];
   })
   return res;
+}
+
+export const useConnectWallet = () => {
+  const {state, dispatch} = useStore();
+  const nearSelector = useNearSelector();
+  return () => {
+    nearSelector?.show();
+  }
 }
 
 export const OpenDepositModal = (state:AppContextInterface , dispatch: React.Dispatch<any>, type: COINTYPE) => {

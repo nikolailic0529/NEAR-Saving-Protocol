@@ -28,7 +28,11 @@ export const coins = [
     id: 'usd-coin',
     stable: true,
     available: true,
-    system: 'Ethereum'
+    testnet_address: 'usdc.fakes.testnet',
+    system: 'Near',
+    floorNormalize: function (amount: number) {
+      return Math.floor(amount / (10 ** 4)) / 100;
+    }
   },
   {
     img: 'img/usdt.svg',
@@ -38,7 +42,11 @@ export const coins = [
     id: 'tether',
     stable: true,
     available: true,
-    system: 'Ethereum'
+    testnet_address: 'usdt.fakes.testnet',
+    system: 'Near',
+    floorNormalize: function (amount: number) {
+      return Math.floor(amount / (10 ** 4)) / 100;
+    }
   },
   {
     img: 'img/dai.svg',
@@ -48,7 +56,11 @@ export const coins = [
     blockchain: 'Dai',
     stable: true,
     available: true,
-    system: 'Ethereum'
+    testnet_address: 'dai.fakes.testnet',
+    system: 'Near',
+    floorNormalize: function (amount: number) {
+      return Math.floor(amount / (10 ** 16)) / 100;
+    }
   },
   {
     img: 'img/usn.svg',
@@ -58,7 +70,11 @@ export const coins = [
     blockchain: 'USD NEAR',
     stable: true,
     available: true,
-    system: 'Near'
+    testnet_address: 'usdn.testnet',
+    system: 'Near',
+    floorNormalize: function (amount: number) {
+      return Math.floor(amount / (10 ** 16)) / 100;
+    }
   },
   {
     img: 'img/eth.svg',
@@ -68,7 +84,11 @@ export const coins = [
     blockchain: 'Ethereum',
     stable: false,
     available: true,
-    system: 'Ethereum'
+    testnet_address: 'eth.fakes.testnet',
+    system: 'Near',
+    floorNormalize: function (amount: number) {
+      return Math.floor(amount / (10 ** 14)) / 10000;
+    }
   },
   {
     img: 'img/wbtc.svg',
@@ -77,8 +97,11 @@ export const coins = [
     blockchain: 'Wrapped Bitcoin',
     id: 'wrapped-bitcoin',
     stable: false,
-    available: true,
-    system: 'Ethereum'
+    testnet_address: 'wbtc.fakes.testnet',
+    system: 'Near',
+    floorNormalize: function (amount: number) {
+      return Math.floor(amount / (10 ** 8)) / 100;
+    }
   },
   {
     img: 'img/wnear.svg',
@@ -88,7 +111,11 @@ export const coins = [
     blockchain: 'Wrapped Near',
     stable: false,
     available: true,
-    system: 'Aurora'
+    testnet_address: 'wrap.testnet',
+    system: 'Near',
+    floorNormalize: function (amount: number) {
+      return Math.floor(amount / (10 ** 22)) / 100;
+    }
   },
   {
     img: 'img/neart.svg',
@@ -97,7 +124,10 @@ export const coins = [
     id: 'neart',
     blockchain: 'NEARt Treasury(Coming Soon)',
     stable: false,
-    available: false
+    available: false,
+    floorNormalize: function (amount: number) {
+      return Math.floor(amount / (10 ** 22)) / 100;
+    }
   },
 ];
 
@@ -149,32 +179,7 @@ export const amountHistory = amountHistory_;
 
 const apiHistoryInfo:any = {};
 coins.forEach(coin => {
-  apiHistoryInfo[coin.name] = [
-    {
-      time: 1648939268,
-      apr: "3547",
-    },
-    {
-      time: 1648939268,
-      apr: "3547",
-    },
-    {
-      time: 1648939268,
-      apr: "3547",
-    },
-    {
-      time: 1648939268,
-      apr: "3547",
-    },
-    {
-      time: 1648939268,
-      apr: "3547",
-    },
-    {
-      time: 1648939268,
-      apr: "3547",
-    },
-  ];
+  apiHistoryInfo[coin.name] = [];
 })
 export const aprHistory = apiHistoryInfo;
 
