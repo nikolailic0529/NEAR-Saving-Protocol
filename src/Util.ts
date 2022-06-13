@@ -76,8 +76,11 @@ export async function fetchData(state: AppContextInterface, dispatch: React.Disp
       args_base64: btoa(JSON.stringify({wallet: localStorage.getItem('accountId')})),
       finality: "optimistic",
     });
+    console.log(JSON.parse(Buffer.from(res.result).toString()))
     status = JSON.parse(Buffer.from(res.result).toString());
   } catch (e) { }
+
+  console.log(status)
 
   if (status) {
     if (status.amount_history !== undefined)
@@ -87,7 +90,7 @@ export async function fetchData(state: AppContextInterface, dispatch: React.Disp
     if (status.farm_info !== undefined)
       dispatch({ type: ActionKind.setFarmInfo, payload: status.farm_info });
     if (status.farm_starttime !== undefined)
-      dispatch({ type: ActionKind.setFarmStartTime, payload: status.farm_starttime });
+      dispatch({ type: ActionKind.setFarmStartTime, payload: status.farm_starttime/10 ** 9 });
     if(status.pot_info != undefined)
       dispatch({ type: ActionKind.setPotInfo, payload: status.pot_info });
 
@@ -293,7 +296,7 @@ export function floorNormalize(amount: number) {
 }
 
 export function floor(amount: number) {
-  return Math.floor(amount * 100) / 100;
+  return Math.floor(amount * 10000) / 10000;
 }
 
 export function getDateString(time: number) {
