@@ -37,21 +37,11 @@ const DepositModal: FunctionComponent<Props> = ({isOpen, onClose}) => {
       return;
       
     // let val = Math.floor(parseFloat(amount) * 10 ** 6);
-    // msg = { [`deposit_${coinType}`]: {qualified: state.qualified} }
-
-    // let deposit_msg = new MsgExecuteContract(
-    //   wallet?.walletAddress,
-    //   POOL,
-    //   msg,
-    //   {uusd: val}
-    // );
-    // let res = await estimateSend(wallet, lcd, [deposit_msg], "Success Deposit", "deposit");
-
     let val = utils.format.parseNearAmount(amount);
-    const methodName = 'try_deposit_usdc';
-    const args = { amount: val, qualified: true }
+    const methodName = 'try_deposit';
+    const args = { token_name: "usdc", amount: String(val), qualified: true }
 
-    let res = await estimateSend(state.coinType, nearSelector, methodName, args);
+    let res = await estimateSend(nearSelector, methodName, args);
     if(res){
       console.log(res)
       dispatch({type: ActionKind.setTxhash, payload: res});

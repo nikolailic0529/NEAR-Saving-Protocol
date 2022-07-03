@@ -54,6 +54,7 @@
     "react-scripts": "4.0.3",
     "react-toastify": "^8.2.0",
     "recharts": "^2.1.9",
+    "serve": "^13.0.2",
     "styled-components": "^5.3.5",
     "typescript": "~4.1.5",
     "web-vitals": "^2.1.4"
@@ -61,6 +62,7 @@
   "scripts": {
     "start": "set PORT=3006 && react-scripts start",
     "build": "react-scripts build",
+    "deploy": "serve -s build -l 4000",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
@@ -80,6 +82,7 @@
     ]
   },
   "devDependencies": {
-    "@types/styled-components": "^5.1.24"
+    "@types/styled-components": "^5.1.24",
+    "react-error-overlay": "^6.0.9"
   }
 }

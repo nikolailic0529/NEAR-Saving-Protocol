@@ -9,6 +9,7 @@ import Footer from "./Pages/Footer";
 import DepositModal from './Pages/DepositModal'
 import WithdrawModal from './Pages/WithdrawModal'
 import WaitingModal from './Pages/WaitingModal';
+import FailedTxModal from './Pages/FailedTxModal';
 import { fetchData, checkNetwork } from './Util';
 
 const Layout = () => {
@@ -18,6 +19,7 @@ const Layout = () => {
   const { isOpen: isOpenDeposit, onOpen: onOpenDeposit, onClose: onCloseDeposit } = useDisclosure();
   const { isOpen: isOpenWithdraw, onOpen: onOpenWithdraw, onClose: onCloseWithdraw } = useDisclosure();
   const { isOpen: isOpenWaiting, onOpen: onOpenWaiting, onClose: onCloseWaiting } = useDisclosure();
+  const { isOpen: isOpenTxFailed, onOpen: onOpenTxFailed, onClose: onCloseTxFaied } = useDisclosure();
 
   const { state, dispatch } = useStore();
   const selector = useNearSelector();
@@ -27,7 +29,9 @@ const Layout = () => {
     dispatch({ type: ActionKind.setOpenWithdrawModal, payload: onOpenWithdraw });
     dispatch({ type: ActionKind.setOpenWaitingModal, payload: onOpenWaiting });
     dispatch({ type: ActionKind.setCloseWaitingModal, payload: onCloseWaiting });
-  }, [dispatch, onOpenDeposit, onOpenWithdraw, onOpenWaiting, onCloseWaiting])
+    dispatch({ type: ActionKind.setOpenTxFailedModal, payload: onOpenTxFailed });
+    dispatch({ type: ActionKind.setCloseTxFailedModal, payload: onCloseTxFaied });
+  }, [dispatch, onOpenDeposit, onOpenWithdraw, onOpenWaiting, onCloseWaiting, onOpenTxFailed, onCloseTxFaied])
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -60,6 +64,7 @@ const Layout = () => {
           <DepositModal isOpen={isOpenDeposit} onClose={onCloseDeposit} />
           <WithdrawModal isOpen={isOpenWithdraw} onClose={onCloseWithdraw} />
           <WaitingModal isOpen={isOpenWaiting} onClose={onCloseWaiting} />
+          <FailedTxModal isOpen={isOpenTxFailed} onClose={onCloseTxFaied} />
         </VStack>
       </Flex>
     </QueryClientProvider>
