@@ -15,15 +15,16 @@ pub const BASE_GAS: Gas = 5_000_000_000_000;
 
 #[ext_contract(ext_ft)]
 pub trait ExtFT {
-    fn mint(receiver_id: AccountId, amount: U128);
-    fn burn(receiver_id: AccountId, amount: U128);
+    fn ft_mint(receiver_id: AccountId, amount: U128);
+    fn ft_burn(receiver_id: AccountId, amount: U128);
+	fn ft_transfer(receiver_id: AccountId, amount: U128);
 }
 
-#[ext_contract(ext_self)]
-pub trait ExtSelf {
-    fn deposit(token_name: String, amount: u128, qualified: bool) -> U128;
-//     fn withdraw(token_name: String, amount: U128);
-}
+// #[ext_contract(ext_self)]
+// pub trait ExtSelf {
+//     fn deposit(wallet: AccountId, token_name: String, amount: u128, qualified: bool) -> U128;
+//     fn withdraw(wallet: AccountId, token_name: String, amount: U128) -> U128;
+// }
 
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize)]
@@ -96,15 +97,14 @@ impl Contract {
 		self.append_token_apr_history(token_name.clone(), apr.0);
 	}
 
-	// Will Remove
-	pub fn try_set_token_addr(&mut self, token_name: String, u_token_addr: AccountId, v_token_addr: AccountId) {
-		assert!(env::predecessor_account_id() == self.owner, "must be owner");
+	// pub fn try_set_token_addr(&mut self, token_name: String, u_token_addr: AccountId, v_token_addr: AccountId) {
+	// 	assert!(env::predecessor_account_id() == self.owner, "must be owner");
 
-		let mut token_info = self.get_token_info(token_name.clone());
-		token_info.u_addr = u_token_addr;
-		token_info.v_addr = v_token_addr;
-		self.token_infos.insert(&token_name, &token_info);
-	}
+	// 	let mut token_info = self.get_token_info(token_name.clone());
+	// 	token_info.u_addr = u_token_addr;
+	// 	token_info.v_addr = v_token_addr;
+	// 	self.token_infos.insert(&token_name, &token_info);
+	// }
 
 	pub fn try_set_token_apr(&mut self, token_name: String, apr: U128) {
 		assert!(env::predecessor_account_id() == self.owner, "must be owner");
@@ -112,51 +112,111 @@ impl Contract {
 		self.append_token_apr_history(token_name, apr.0);
 	}
 
-	pub fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> Promise {
+	pub fn ft_on_transfer(&mut self, sender_id: AccountId, amount: U128, msg: String) -> U128 {
 		let json: Value = near_sdk::serde_json::from_str(&msg).unwrap();
 		let params: Map<String, Value> = json.as_object().unwrap().clone();
 		
 		let token_name = params.get(&"token_name".to_string()).unwrap().as_str().unwrap().to_string();
 		let qualified = params.get(&"qualified".to_string()).unwrap().as_bool().unwrap();
-		let token_info = self.get_token_info(token_name);
 		
-		ext_ft::mint(sender_id.clone(), amount, &token_info.v_addr, 0, 50_000_000_000)
-		.then(
-			ext_self::deposit(token_info.name.clone(), amount.0, qualified, &env::current_account_id(), 0, 50_000_000_000)
-		)
+		let token_info = self.get_token_info(token_name);
+		// assert!(token_info.u_addr == env::predecessor_account_id(), "must be token address");
+		
+		let depopsit_amount = self.deposit(sender_id.clone(), token_info.name.clone(), amount.0, qualified);
+		ext_ft::ft_mint(sender_id.clone(), amount, &token_info.v_addr, 0, 10_000_000_000_000);
+		depopsit_amount
 	}
 
-	// pub fn try_deposit(&mut self, token_name: String, amount: U128, qualified: bool) /*-> Promise*/ {
-	// 	let wallet = env::predecessor_account_id();
+	// pub fn try_deposit(&mut self, token_name: String, amount: U128, qualified: bool) {
+	// 	let sender_id = env::predecessor_account_id();
 	// 	let token_info = self.get_token_info(token_name.clone());
 
-		// Transfer to Treasury
-		// ext_ft::ft_transfer(self.treasury.clone(), amount, &token_info.u_addr, 0, 20_000_000_000_000)
-		// .then(
-			// Mint Voucher Token
-			// ext_ft::mint(wallet.clone(), amount, &token_info.v_addr, 0, 5_000_000_000_000).then(
-				// ext_self::deposit(token_name, amount, qualified, &env::current_account_id(), 0, 5_000_000_000_000)
-			// )
-		// )
-
-		// ext_ft::ft_on_transfer(env::predecessor_account_id(), amount, "Received".to_string(), &token_info.u_addr, 1, 20_000_000_000_000);
-
-		// self.deposit(wallet.clone(), token_name, amount.0, qualified);
-		// ext_ft::mint(wallet.clone(), amount, &token_info.v_addr, 0, 500_000_000);
+	// 	self.deposit(sender_id.clone(), token_info.name.clone(), amount.0, qualified);
+	// 	ext_ft::ft_mint(sender_id.clone(), amount, &token_info.v_addr, 0, 1_000_000_000_000);
 	// }
 
-	pub fn try_withdraw(&mut self, token_name: String, amount: U128, token_prices: Vec<TokenPriceInfo>) /*-> Promise*/ {
+	pub fn deposit(&mut self, wallet: AccountId, token_name: String, amount: Balance, qualified: bool) -> U128 {
+		let mut token_pool_info = self.pool_infos.get(&token_name)
+			.unwrap_or(UnorderedMap::new(b"try_deposit:token_pool_info".to_vec()));
+		let mut token_user_pool_info = token_pool_info.get(&wallet)
+			.unwrap_or(TokenUserPoolInfo {
+				token_name: token_name.clone(),
+				wallet: wallet.clone(),
+				deposit_amount: 0,
+				reward_amount: 0,
+				deposit_time: env::block_timestamp(),
+			});
+			
+		// Upgrade Amount in Pool
+		token_user_pool_info.deposit_amount += amount;
+		token_pool_info.insert(&wallet, &token_user_pool_info);
+		self.pool_infos.insert(&token_name, &token_pool_info);
+		
+		// Deposit To Pot
+		self.deposit_pot(token_name.clone(), wallet.clone(), amount, qualified);
+
+		// Log
+		self.append_user_oper_history(wallet.clone(), token_name.clone(), amount, true);
+		self.append_token_amount_history(token_name.clone(), amount, true);
+
+		U128(0)
+	}
+
+	pub fn try_withdraw(&mut self, token_name: String, amount: U128, token_prices: Vec<TokenPriceInfo>) {
 		self.save_token_prices(token_prices);
 		
-		let wallet = env::predecessor_account_id();
+		let receiver_id = env::predecessor_account_id();
 		let token_info: TokenInfo = self.get_token_info(token_name.clone());
 
-		// Burn
-		// ext_ft::burn(wallet.clone(), amount, &token_info.v_addr, 0, BASE_GAS).then(
-			// ext_self::withdraw(token_name, amount, &env::current_account_id(), 0, BASE_GAS)
-		// )
-		self.withdraw(wallet.clone(), token_name, amount.0);
-		ext_ft::burn(wallet.clone(), amount, &token_info.v_addr, 0, 5_000_000_000_000);
+		ext_ft::ft_burn(receiver_id.clone(), amount, &token_info.v_addr, 0, 5_000_000_000_000);
+		let withdraw_amount = self.withdraw(receiver_id.clone(), token_name, amount.0);
+		ext_ft::ft_transfer(receiver_id.clone(), withdraw_amount, &token_info.u_addr, 1, 5_000_000_000_000);
+	}
+
+	fn withdraw(&mut self, wallet: AccountId, token_name: String, amount: Balance) -> U128 {
+		let mut token_pool_info = self.pool_infos.get(&token_name)
+			.unwrap_or(UnorderedMap::new(b"try_withdraw:token_pool_info".to_vec()));
+		let mut token_user_pool_info = token_pool_info.get(&wallet)
+			.unwrap_or(TokenUserPoolInfo {
+				token_name: token_name.clone(),
+				wallet: wallet.clone(),
+				deposit_amount: 0,
+				reward_amount: 0,
+				deposit_time: env::block_timestamp(),
+			});
+		
+		// Calc Remain Amount
+		let mut withdraw_amount = amount;
+		if token_user_pool_info.deposit_amount >= amount {
+			token_user_pool_info.deposit_amount -= amount;
+		} else {
+			withdraw_amount = token_user_pool_info.deposit_amount;
+			token_user_pool_info.deposit_amount = 0;
+			
+			assert!(token_user_pool_info.reward_amount >= amount - withdraw_amount, "should be smaller than current amount");
+			token_user_pool_info.reward_amount -= amount - withdraw_amount;
+
+			// Upgrade Total Reward
+			let mut token_total_reward = self.total_rewards.get(&token_name).unwrap_or(0);
+			token_total_reward -= amount - withdraw_amount;
+			self.total_rewards.insert(&token_name, &token_total_reward);
+		}
+		token_user_pool_info.deposit_time = env::block_timestamp();
+		
+		// Log
+		self.append_user_oper_history(wallet.clone(), token_name.clone(), withdraw_amount, false);
+		self.append_token_amount_history(token_name.clone(), withdraw_amount, false);
+
+		// Withdraw
+		self.withdraw_pot(token_name.clone(), wallet.clone(), withdraw_amount.clone());
+
+		self.withdraw_farm(wallet.clone(), token_name.clone(), withdraw_amount);
+		
+		// Save
+		token_pool_info.insert(&wallet, &token_user_pool_info);
+		self.pool_infos.insert(&token_name, &token_pool_info);
+
+		U128::from(withdraw_amount)
 	}
 
 	pub fn try_calc_reward(&mut self) {
@@ -183,7 +243,7 @@ impl Contract {
 				
 				if reward > 0 {
 					let token_info = self.token_infos.get(&token_name).unwrap();
-					ext_ft::burn(wallet.clone(), U128::from(reward), &token_info.v_addr, 0, BASE_GAS);
+					ext_ft::ft_burn(wallet.clone(), U128::from(reward), &token_info.v_addr, 0, BASE_GAS);
 				}
 			}
 			self.pool_infos.insert(&token_name, &token_pool_info);
@@ -337,6 +397,10 @@ impl Contract {
 		self.oper_historys.get(&wallet).unwrap_or(Vec::new())
 	}
 
+	pub fn get_token_amount_history(&self, token_name: String) -> TokenAmountHistory {
+		self.amount_historys.get(&token_name).unwrap()
+	}
+
 	pub fn get_user_state(&self, wallet: AccountId) -> Map<String, Value> {
 		let mut res: Map<String, Value> = Map::new();
 		let mut json_str: String = "".to_string();
@@ -348,19 +412,25 @@ impl Contract {
 		let mut res_amount_history: Vec<Value> = Vec::new();
 		for token_name in all_tokens.iter() {
 			let token_amount_history: TokenAmountHistory = self.amount_historys.get(&token_name).unwrap_or(Vec::new());
-			for i in 1..token_amount_history.len() {
+			for i in 0..token_amount_history.len() {
 				let mut res_amount_info: Map<String, Value> = Map::new();
 				
 				if res_amount_history.len() <= i {
 					res_amount_info.insert("time".to_string(), Value::Number(token_amount_history[i].time.into()));
+					res_amount_info.insert(format!("{}_deposit_amount", token_name), Value::String(format!("{}", token_amount_history[i].deposit_amount)));
+					res_amount_info.insert(format!("{}_reward_amount", token_name), Value::String(format!("{}", token_amount_history[i].reward_amount)));
+					res_amount_info.insert(format!("totalUSD"), Value::String(format!("{}", 0)));
+					
+					res_amount_history.push(Value::Object(res_amount_info));
 				} else {
 					res_amount_info = res_amount_history[i].as_object().unwrap().clone();
+					res_amount_info.insert(format!("{}_deposit_amount", token_name), Value::String(format!("{}", token_amount_history[i].deposit_amount)));
+					res_amount_info.insert(format!("{}_reward_amount", token_name), Value::String(format!("{}", token_amount_history[i].reward_amount)));
+					res_amount_info.insert(format!("totalUSD"), Value::String(format!("{}", 0)));
+
+					res_amount_history.push(Value::Object(res_amount_info));
+					res_amount_history.swap_remove(i);
 				}
-				
-				res_amount_info.insert(format!("{}_deposit_amount", token_name), Value::String(format!("{}", token_amount_history[i].deposit_amount)));
-				res_amount_info.insert(format!("{}_reward_amount", token_name), Value::String(format!("{}", token_amount_history[i].deposit_amount)));
-				res_amount_info.insert(format!("totalUSD"), Value::String(format!("{}", 0)));
-				res_amount_history.push(Value::Object(res_amount_info));
 			}
 
 			// Token Apr History
@@ -430,77 +500,6 @@ impl Contract {
 }
 
 impl Contract {
-	fn deposit(&mut self, wallet: AccountId, token_name: String, amount: Balance, qualified: bool) -> U128 {
-		let mut token_pool_info = self.pool_infos.get(&token_name)
-			.unwrap_or(UnorderedMap::new(b"try_deposit:token_pool_info".to_vec()));
-		let mut token_user_pool_info = token_pool_info.get(&wallet)
-			.unwrap_or(TokenUserPoolInfo {
-				token_name: token_name.clone(),
-				wallet: wallet.clone(),
-				deposit_amount: 0,
-				reward_amount: 0,
-				deposit_time: env::block_timestamp(),
-			});
-			
-		// Upgrade Amount in Pool
-		token_user_pool_info.deposit_amount += amount;
-		token_pool_info.insert(&wallet, &token_user_pool_info);
-		self.pool_infos.insert(&token_name, &token_pool_info);
-		
-		// Deposit To Pot
-		self.deposit_pot(token_name.clone(), wallet.clone(), amount, qualified);
-
-		// Log
-		self.append_user_oper_history(wallet.clone(), token_name.clone(), amount, true);
-		self.append_token_amount_history(token_name.clone(), amount, true);
-
-		return U128(0);
-	}
-
-	fn withdraw(&mut self, wallet: AccountId, token_name: String, amount: Balance) {
-		let mut token_pool_info = self.pool_infos.get(&token_name)
-			.unwrap_or(UnorderedMap::new(b"try_withdraw:token_pool_info".to_vec()));
-		let mut token_user_pool_info = token_pool_info.get(&wallet)
-			.unwrap_or(TokenUserPoolInfo {
-				token_name: token_name.clone(),
-				wallet: wallet.clone(),
-				deposit_amount: 0,
-				reward_amount: 0,
-				deposit_time: env::block_timestamp(),
-			});
-		
-		// Calc Remain Amount
-		let mut withdraw_amount = amount;
-		if token_user_pool_info.deposit_amount >= amount {
-			token_user_pool_info.deposit_amount -= amount;
-		} else {
-			withdraw_amount = token_user_pool_info.deposit_amount;
-			token_user_pool_info.deposit_amount = 0;
-			
-			assert!(token_user_pool_info.reward_amount >= amount - withdraw_amount, "should be smaller than current amount");
-			token_user_pool_info.reward_amount -= amount - withdraw_amount;
-
-			// Upgrade Total Reward
-			let mut token_total_reward = self.total_rewards.get(&token_name).unwrap_or(0);
-			token_total_reward -= amount - withdraw_amount;
-			self.total_rewards.insert(&token_name, &token_total_reward);
-		}
-		token_user_pool_info.deposit_time = env::block_timestamp();
-		
-		// Log
-		self.append_user_oper_history(wallet.clone(), token_name.clone(), withdraw_amount, false);
-		self.append_token_amount_history(token_name.clone(), withdraw_amount, false);
-
-		// Withdraw
-		self.withdraw_pot(token_name.clone(), wallet.clone(), withdraw_amount.clone());
-
-		self.withdraw_farm(wallet.clone(), token_name.clone(), withdraw_amount);
-		
-		// Save
-		token_pool_info.insert(&wallet, &token_user_pool_info);
-		self.pool_infos.insert(&token_name, &token_pool_info);
-	}
-
 	fn append_user_oper_history(&mut self, wallet: AccountId, token_name: String, amount: Balance, io: bool) {
 		let mut user_oper_history = self.oper_historys.get(&wallet).unwrap_or(Vec::new());
 		user_oper_history.push(UserOperInfo {

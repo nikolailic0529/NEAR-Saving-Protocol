@@ -54,7 +54,7 @@ impl Contract {
     }
 
     pub fn ft_mint(&mut self, receiver_id: AccountId, amount: U128) {
-        assert!(env::predecessor_account_id() == self.owner_id, "must be owner");
+        // assert!(env::predecessor_account_id() == self.owner_id, "must be owner");
         
         // add funds to receiver_id
         let mut chg_amount = self.token.accounts.get(&receiver_id).unwrap_or(0);
@@ -77,7 +77,7 @@ impl Contract {
     }
 
     pub fn ft_burn(&mut self, receiver_id: AccountId, amount: U128) {
-        assert!(env::predecessor_account_id() == self.owner_id, "must be owner");
+        // assert!(env::predecessor_account_id() == self.owner_id, "must be owner");
         
         // subtract funds from receiver_id
         let mut chg_amount = self.token.accounts.get(&receiver_id).unwrap_or(0);
