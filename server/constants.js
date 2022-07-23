@@ -42,7 +42,7 @@ let net ="testnet"
 // const wallet = terra.wallet(mk);
 
 const POOL_MAIN = "=";
-const POOL_TEST = "staking_voucher_tokens.testnet";
+const POOL_TEST = "staking_vft_pool.testnet";
 const POOL = net == 'mainnet'? POOL_MAIN: POOL_TEST;
 
 function getConfig(env) {

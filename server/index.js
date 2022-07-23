@@ -119,7 +119,7 @@ async function initContract() {
 			nearConfig
 		)
 	);
-	const accountId = 'staking_voucher_tokens.testnet';
+	const accountId = 'staking_vft_pool.testnet';
 	const account = await near.account(accountId)
 
 	// Initializing our contract APIs by contract name and configuration
