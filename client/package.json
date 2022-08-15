@@ -60,8 +60,8 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "set PORT=3006 && react-scripts start",
-    "build": "react-scripts build",
+    "start": "set PORT=3006 && react-scripts  --openssl-legacy-provider start start",
+    "build": "react-scripts --openssl-legacy-provider build",
     "deploy": "serve -s build -l 4000",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
@@ -86,7 +86,7 @@
     "react-error-overlay": "^6.0.9"
   },
   "engines": {
-    "node": ">=10.0.0",
+    "node": ">=10.0.0 <=20",
     "npm": ">=6.0.0"
   }
 }
